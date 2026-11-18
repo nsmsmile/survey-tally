@@ -33,3 +33,13 @@ npm test
 ```bash
 npm run csp
 ```
+
+---
+
+# 10×10 오목 (`omok/`)
+
+설문 집계기와 별개로 만든 두 사람용 오목입니다. `omok/index.html`을 브라우저로 열면 바로 할 수 있습니다(GitHub Pages에서는 `/omok/` 주소).
+
+- 흑이 먼저, 가로·세로·대각선으로 5개 이상 먼저 이으면 승리. 판이 다 차면 무승부.
+- 무르기, 새 게임, 키보드 조작(방향키 + Enter/Space) 지원.
+- 규칙과 구조는 [omok/PLAN.md](omok/PLAN.md), 시험은 `tests/omok.test.mjs`(`npm test`로 함께 실행).
