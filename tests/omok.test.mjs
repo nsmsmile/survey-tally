@@ -152,3 +152,16 @@ test("무르기: 승부가 난 뒤에도 되돌리면 다시 둘 수 있음", ()
 test("findWinLine: 빈칸이면 빈 목록", () => {
   assert.deepEqual(plain(findWinLine(createGame(), 0, 0)), []);
 });
+
+test("페이지: 외부 자원·네트워크·저장 API를 쓰지 않음", () => {
+  assert.doesNotMatch(html, /<script\b[^>]*\bsrc\s*=|<link\b|@import|url\s*\(/i);
+  assert.doesNotMatch(html, /\b(https?:)?\/\/[a-z0-9.-]+\.[a-z]{2,}/i);
+  for (const api of ["fetch(", "XMLHttpRequest", "WebSocket", "sendBeacon", "localStorage", "sessionStorage", "indexedDB", "innerHTML"]) {
+    assert.ok(!html.includes(api), `${api} 사용`);
+  }
+  assert.match(html, /Content-Security-Policy" content="default-src 'none'/);
+});
+
+test("페이지: 게임 로직 블록은 DOM을 쓰지 않음", () => {
+  assert.doesNotMatch(core, /\b(document|window|navigator)\b/);
+});

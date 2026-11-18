@@ -2,9 +2,139 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
 <title>10×10 오목</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f6f3ec;
+  --fg: #1d1f23;
+  --muted: #5d636d;
+  --wood: #dcb35c;
+  --wood-edge: #b88a35;
+  --grid: #4a3714;
+  --accent: #c62828;
+  --win: #1f7a3a;
+  --btn: #ffffff;
+  --btn-line: #c9c2b3;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17181b;
+    --fg: #e7e9ee;
+    --muted: #a2a8b3;
+    --btn: #24262b;
+    --btn-line: #3d4048;
+    --win: #2fa557;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  line-height: 1.5;
+}
+main { max-width: 560px; margin: 0 auto; padding: 20px 16px 40px; }
+h1 { font-size: 1.5rem; margin: 0 0 4px; }
+.muted { color: var(--muted); font-size: 0.9rem; margin: 0 0 14px; }
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+#status { font-weight: 600; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; min-height: 1.6em; margin: 0; }
+#status .chip { width: 18px; height: 18px; border-radius: 50%; display: inline-block; flex: none; }
+.chip.black { background: radial-gradient(circle at 35% 35%, #555, #000 70%); }
+.chip.white { background: radial-gradient(circle at 35% 35%, #fff, #d6d6d6 75%); box-shadow: inset 0 0 0 1px #999; }
+#status.win { color: var(--win); }
+.actions { display: flex; gap: 8px; }
+button.action {
+  font: inherit;
+  padding: 6px 14px;
+  border: 1px solid var(--btn-line);
+  border-radius: 6px;
+  background: var(--btn);
+  color: var(--fg);
+  cursor: pointer;
+}
+button.action:disabled { opacity: 0.45; cursor: default; }
+.board-frame {
+  background: var(--wood);
+  border: 1px solid var(--wood-edge);
+  border-radius: 6px;
+  padding: 3%;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+}
+#board {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  aspect-ratio: 1;
+  width: 100%;
+}
+.cell {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  aspect-ratio: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+/* 교차점의 가로·세로 줄. 가장자리 칸은 가운데에서 끊는다. */
+.cell::before, .cell::after { content: ""; position: absolute; background: var(--grid); pointer-events: none; }
+.cell::before { left: 0; right: 0; top: 50%; height: 1px; transform: translateY(-0.5px); }
+.cell::after { top: 0; bottom: 0; left: 50%; width: 1px; transform: translateX(-0.5px); }
+.cell.c0::before { left: 50%; }
+.cell.c9::before { right: 50%; }
+.cell.r0::after { top: 50%; }
+.cell.r9::after { bottom: 50%; }
+.stone {
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  z-index: 1;
+  pointer-events: none;
+}
+.stone.black { background: radial-gradient(circle at 35% 35%, #5a5a5a, #000 70%); box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.45); }
+.stone.white { background: radial-gradient(circle at 35% 35%, #fff, #d2d2d2 75%); box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.35); }
+/* 빈칸에 마우스를 올리면 둘 돌을 흐리게 보여 준다 */
+@media (hover: hover) {
+  #board:not(.over) .cell:not(.filled):hover .stone { opacity: 0.4; }
+  #board[data-turn="black"]:not(.over) .cell:not(.filled):hover .stone { background: #000; }
+  #board[data-turn="white"]:not(.over) .cell:not(.filled):hover .stone { background: #fff; }
+}
+.cell.last .stone::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 22%; height: 22%;
+  margin: -11% 0 0 -11%;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.cell.winning .stone { box-shadow: 0 0 0 3px var(--win), 1px 2px 3px rgba(0, 0, 0, 0.4); }
+#board.over .cell { cursor: default; }
+.cell:focus-visible { outline: 2px solid #1f5fbf; outline-offset: -2px; border-radius: 4px; z-index: 2; }
+.help { margin-top: 14px; }
+</style>
 </head>
 <body>
+<main>
+  <h1>10×10 오목</h1>
+  <p class="muted">두 사람이 번갈아 둡니다. 흑이 먼저 두고, 가로·세로·대각선으로 5개 이상 먼저 이으면 이깁니다.</p>
+  <div class="bar">
+    <p id="status" role="status" aria-live="polite"></p>
+    <div class="actions">
+      <button type="button" class="action" id="undo">무르기</button>
+      <button type="button" class="action" id="reset">새 게임</button>
+    </div>
+  </div>
+  <div class="board-frame">
+    <div id="board" role="grid" aria-label="오목판 10행 10열"></div>
+  </div>
+  <p class="muted help">키보드: 방향키로 이동, Enter 또는 Space로 돌을 놓습니다.</p>
+</main>
+
 <script id="omok-core">
 // 게임 로직: 화면(DOM)과 무관한 순수 함수만 둔다. tests/omok.test.mjs가 이 블록만 꺼내 시험한다.
 // 상태는 바꾸지 않고 새로 만들어 돌려준다.
@@ -92,6 +222,131 @@
 
   root.Omok = { SIZE, WIN, createGame, play, undo, findWinLine };
 })(globalThis);
+</script>
+<script id="omok-ui">
+// 화면: 판을 그리고 클릭·키보드 입력을 게임 로직에 넘긴다.
+(function () {
+  "use strict";
+  const { createGame, play, undo } = Omok;
+  const boardEl = document.getElementById("board");
+  const statusEl = document.getElementById("status");
+  const undoBtn = document.getElementById("undo");
+  const resetBtn = document.getElementById("reset");
+  const NAME = { black: "흑", white: "백" };
+
+  let state = createGame();
+  let focusIndex = 0;
+  const size = state.size;
+  const cells = [];
+
+  // 판 만들기: 행마다 role="row", 칸은 버튼(role="gridcell")
+  for (let r = 0; r < size; r++) {
+    const rowEl = document.createElement("div");
+    rowEl.setAttribute("role", "row");
+    rowEl.style.display = "contents";
+    for (let c = 0; c < size; c++) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cell r" + r + " c" + c;
+      btn.setAttribute("role", "gridcell");
+      btn.dataset.row = r;
+      btn.dataset.col = c;
+      const stone = document.createElement("span");
+      stone.className = "stone";
+      btn.appendChild(stone);
+      rowEl.appendChild(btn);
+      cells.push(btn);
+    }
+    boardEl.appendChild(rowEl);
+  }
+
+  function setStatus() {
+    statusEl.replaceChildren();
+    statusEl.classList.toggle("win", state.winner === "black" || state.winner === "white");
+    let text;
+    let chipColor = null;
+    if (state.winner === "draw") {
+      text = "무승부입니다. 판이 가득 찼습니다.";
+    } else if (state.winner) {
+      chipColor = state.winner;
+      text = NAME[state.winner] + " 승리!";
+    } else {
+      chipColor = state.turn;
+      text = NAME[state.turn] + " 차례 (" + (state.moves.length + 1) + "수)";
+    }
+    if (chipColor) {
+      const chip = document.createElement("span");
+      chip.className = "chip " + chipColor;
+      chip.setAttribute("aria-hidden", "true");
+      statusEl.appendChild(chip);
+    }
+    statusEl.appendChild(document.createTextNode(text));
+  }
+
+  function render() {
+    const last = state.moves[state.moves.length - 1];
+    const winSet = new Set(state.winLine.map(([r, c]) => r * size + c));
+    cells.forEach((btn, i) => {
+      const color = state.board[i];
+      const r = Math.floor(i / size);
+      const c = i % size;
+      btn.classList.toggle("filled", Boolean(color));
+      btn.classList.toggle("last", Boolean(last && last.row === r && last.col === c));
+      btn.classList.toggle("winning", winSet.has(i));
+      btn.firstChild.className = "stone" + (color ? " " + color : "");
+      btn.setAttribute("aria-label", (r + 1) + "행 " + (c + 1) + "열, " + (color ? NAME[color] : "빈칸"));
+      btn.tabIndex = i === focusIndex ? 0 : -1;
+    });
+    boardEl.dataset.turn = state.turn;
+    boardEl.classList.toggle("over", Boolean(state.winner));
+    undoBtn.disabled = state.moves.length === 0;
+    setStatus();
+  }
+
+  function moveFocus(i) {
+    focusIndex = i;
+    cells.forEach((btn, j) => { btn.tabIndex = j === i ? 0 : -1; });
+    cells[i].focus();
+  }
+
+  boardEl.addEventListener("click", (e) => {
+    const btn = e.target.closest(".cell");
+    if (!btn) return;
+    const r = Number(btn.dataset.row);
+    const c = Number(btn.dataset.col);
+    focusIndex = r * size + c;
+    const res = play(state, r, c);
+    if (res.ok) state = res.state;
+    render();
+  });
+
+  boardEl.addEventListener("keydown", (e) => {
+    const step = { ArrowUp: -size, ArrowDown: size, ArrowLeft: -1, ArrowRight: 1 }[e.key];
+    if (step === undefined) return;
+    e.preventDefault();
+    const r = Math.floor(focusIndex / size);
+    const c = focusIndex % size;
+    if (e.key === "ArrowLeft" && c === 0) return;
+    if (e.key === "ArrowRight" && c === size - 1) return;
+    if (e.key === "ArrowUp" && r === 0) return;
+    if (e.key === "ArrowDown" && r === size - 1) return;
+    moveFocus(focusIndex + step);
+  });
+
+  undoBtn.addEventListener("click", () => {
+    state = undo(state);
+    render();
+  });
+
+  resetBtn.addEventListener("click", () => {
+    if (state.moves.length && !state.winner && !confirm("진행 중인 게임을 지우고 새로 시작할까요?")) return;
+    state = createGame();
+    focusIndex = 0;
+    render();
+  });
+
+  render();
+})();
 </script>
 </body>
 </html>
