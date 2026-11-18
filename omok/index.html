@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>10×10 오목</title>
+</head>
+<body>
+<script id="omok-core">
+// 게임 로직: 화면(DOM)과 무관한 순수 함수만 둔다. tests/omok.test.mjs가 이 블록만 꺼내 시험한다.
+// 상태는 바꾸지 않고 새로 만들어 돌려준다.
+(function (root) {
+  "use strict";
+
+  const SIZE = 10;
+  const WIN = 5;
+  const DIRECTIONS = [[0, 1], [1, 0], [1, 1], [1, -1]]; // 가로, 세로, ↘, ↙
+
+  function createGame(size) {
+    const n = size || SIZE;
+    return {
+      size: n,
+      board: new Array(n * n).fill(""),
+      turn: "black",
+      moves: [],
+      winner: null, // null | "black" | "white" | "draw"
+      winLine: [], // 이긴 줄의 [row, col] 목록
+    };
+  }
+
+  function at(state, row, col) {
+    return state.board[row * state.size + col];
+  }
+
+  function inside(state, row, col) {
+    return Number.isInteger(row) && Number.isInteger(col) && row >= 0 && col >= 0 && row < state.size && col < state.size;
+  }
+
+  // (row, col)을 지나는 같은 색 줄 가운데 WIN개 이상인 것을 찾는다. 없으면 [].
+  function findWinLine(state, row, col) {
+    const color = at(state, row, col);
+    if (!color) return [];
+    for (const [dr, dc] of DIRECTIONS) {
+      const line = [[row, col]];
+      for (const sign of [1, -1]) {
+        let r = row + dr * sign;
+        let c = col + dc * sign;
+        while (inside(state, r, c) && at(state, r, c) === color) {
+          if (sign === 1) line.push([r, c]);
+          else line.unshift([r, c]);
+          r += dr * sign;
+          c += dc * sign;
+        }
+      }
+      if (line.length >= WIN) return line;
+    }
+    return [];
+  }
+
+  // 착수. 성공하면 { ok: true, state }, 아니면 { ok: false, reason }.
+  function play(state, row, col) {
+    if (state.winner) return { ok: false, reason: "game-over" };
+    if (!inside(state, row, col)) return { ok: false, reason: "out-of-range" };
+    if (at(state, row, col)) return { ok: false, reason: "occupied" };
+
+    const color = state.turn;
+    const board = state.board.slice();
+    board[row * state.size + col] = color;
+    const next = {
+      size: state.size,
+      board,
+      turn: color === "black" ? "white" : "black",
+      moves: state.moves.concat([{ row, col, color }]),
+      winner: null,
+      winLine: [],
+    };
+    const line = findWinLine(next, row, col);
+    if (line.length) {
+      next.winner = color;
+      next.winLine = line;
+    } else if (next.moves.length === state.size * state.size) {
+      next.winner = "draw";
+    }
+    return { ok: true, state: next };
+  }
+
+  // 한 수 무르기: 마지막 수를 뺀 나머지를 처음부터 다시 둔다.
+  function undo(state) {
+    let s = createGame(state.size);
+    for (const m of state.moves.slice(0, -1)) s = play(s, m.row, m.col).state;
+    return s;
+  }
+
+  root.Omok = { SIZE, WIN, createGame, play, undo, findWinLine };
+})(globalThis);
+</script>
+</body>
+</html>
