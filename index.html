@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>설문 집계기</title>
+</head>
+<body>
+<script id="tally-core">
+// 계산 로직: 화면(DOM)과 무관한 순수 함수만 둔다. tests/tally.test.mjs가 이 블록만 꺼내 시험한다.
+(function (root) {
+  "use strict";
+
+  // 엑셀에서 복사한 탭 구분 글을 줄·칸 배열로 바꾼다.
+  // 엑셀은 줄바꿈이나 탭이 든 칸을 "…"로 감싸고 안의 "를 ""로 적으므로 그 경우만 풀어 읽는다.
+  // 길이가 0인 줄은 응답 줄로 치지 않는다.
+  function parseTsv(text) {
+    const s = String(text);
+    const rows = [];
+    let row = [];
+    let i = 0;
+    let lineStart = 0;
+
+    function endRow(lineIsEmpty) {
+      if (!lineIsEmpty) rows.push(row);
+      row = [];
+    }
+
+    while (i <= s.length) {
+      if (i === s.length) {
+        if (i > lineStart) endRow(false);
+        break;
+      }
+      // 칸 하나 읽기
+      let value = null;
+      if (s[i] === '"') {
+        const q = readQuoted(s, i);
+        if (q) {
+          value = q.value;
+          i = q.end;
+        }
+      }
+      if (value === null) {
+        let j = i;
+        while (j < s.length && s[j] !== "\t" && s[j] !== "\n" && s[j] !== "\r") j++;
+        value = s.slice(i, j);
+        i = j;
+      }
+      row.push(value);
+
+      if (i >= s.length) {
+        endRow(false);
+        break;
+      }
+      if (s[i] === "\t") {
+        i++;
+        if (i === s.length) {
+          row.push("");
+          endRow(false);
+          break;
+        }
+        continue;
+      }
+      // 줄바꿈
+      const lineIsEmpty = i === lineStart;
+      if (s[i] === "\r" && s[i + 1] === "\n") i += 2;
+      else i++;
+      endRow(lineIsEmpty);
+      lineStart = i;
+    }
+    return rows;
+  }
+
+  // start 위치의 "로 시작하는 엑셀식 따옴표 칸을 읽는다.
+  // 닫는 따옴표 뒤가 탭·줄바꿈·끝이고, 안에 줄바꿈이나 탭이 있을 때만 따옴표 칸으로 본다
+  // (엑셀은 그때만 따옴표로 감싼다). 아니면 null을 돌려주어 글자 그대로 읽게 한다.
+  function readQuoted(s, start) {
+    let i = start + 1;
+    let out = "";
+    while (i < s.length) {
+      const c = s[i];
+      if (c === '"') {
+        if (s[i + 1] === '"') {
+          out += '"';
+          i += 2;
+          continue;
+        }
+        const after = s[i + 1];
+        const closesField = after === undefined || after === "\t" || after === "\n" || after === "\r";
+        if (closesField && /[\t\r\n]/.test(out)) return { value: out, end: i + 1 };
+        return null;
+      }
+      out += c;
+      i++;
+    }
+    return null;
+  }
+
+  // 칸 판정: "valid" | "blank" | "excluded"
+  function classifyCell(raw) {
+    const v = raw === undefined || raw === null ? "" : String(raw).trim();
+    if (v === "") return "blank";
+    if (v === "1" || v === "2" || v === "3" || v === "4" || v === "5") return "valid";
+    return "excluded";
+  }
+
+  // 평균 = sum ÷ count 를 소수 셋째 자리에서 반올림해 둘째 자리까지. count가 0이면 "-".
+  // 부동소수점 오차를 피하려고 정수로만 계산한다.
+  function formatAverage(sum, count) {
+    if (!count) return "-";
+    const hundredths = Math.floor((sum * 200 + count) / (2 * count));
+    const whole = Math.floor(hundredths / 100);
+    const frac = hundredths % 100;
+    return whole + "." + (frac < 10 ? "0" : "") + frac;
+  }
+
+  // 붙여넣은 글 전체를 집계한다.
+  function tally(text) {
+    const rows = parseTsv(text);
+    if (rows.length === 0) return { questions: [], responseCount: 0 };
+    const header = rows[0];
+    const body = rows.slice(1);
+    const questions = [];
+    for (let col = 1; col < header.length; col++) {
+      const name = header[col].trim() || "열 " + (col + 1);
+      let valid = 0;
+      let sum = 0;
+      let blank = 0;
+      let excluded = 0;
+      for (const r of body) {
+        const kind = classifyCell(r[col]);
+        if (kind === "valid") {
+          valid++;
+          sum += Number(r[col].trim());
+        } else if (kind === "blank") {
+          blank++;
+        } else {
+          excluded++;
+        }
+      }
+      questions.push({ name, valid, average: formatAverage(sum, valid), blank, excluded });
+    }
+    return { questions, responseCount: body.length };
+  }
+
+  root.SurveyTally = { parseTsv, classifyCell, formatAverage, tally };
+})(globalThis);
+</script>
+</body>
+</html>
