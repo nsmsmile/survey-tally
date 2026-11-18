@@ -49,7 +49,8 @@
 - `index.html` 안의 `<script id="tally-core">`: 화면과 무관한 순수 함수(`parseTsv`, `classifyCell`, `formatAverage`, `tally`). DOM에 손대지 않는다.
 - `index.html` 안의 두 번째 `<script>`: 화면(입력 받기, 표 그리기). 표는 `textContent`로만 채워 머리글에 HTML이 섞여도 실행되지 않게 한다.
 - `tests/tally.test.mjs`: `index.html`에서 `tally-core` 스크립트만 꺼내 Node `vm`에서 실행하고 `node:test`로 시험한다. 외부 패키지 없음.
-- `tests/page.test.mjs`: 외부 자원 참조가 없는지, 저장소 API를 쓰지 않는지, CSP가 있는지, `.nojekyll`이 빈 파일인지 확인.
+- `tests/page.test.mjs`: 외부 자원 참조·저장·전송 API가 없는지, CSP 해시가 최신인지, `.nojekyll`이 빈 파일인지 확인.
+- CSP는 `unsafe-inline` 대신 인라인 스크립트·스타일의 sha256 해시로 허용한다. `tools/csp-hashes.mjs`(`npm run csp`)가 해시를 갱신한다.
 - 실행: `npm test` (= `node --test "tests/*.test.mjs"`, Node 22 이상)
 
 ## 작업 순서(작업마다 커밋)
